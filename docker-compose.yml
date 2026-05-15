@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: bd_spark_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bd_spark
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - "./sql/postgres:/docker-entrypoint-initdb.d:ro"
+      - "./исходные данные:/data:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bd_spark"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: bd_spark_clickhouse
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - "./sql/clickhouse/users.d/bd_spark_user.xml:/etc/clickhouse-server/users.d/bd_spark_user.xml:ro"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  spark:
+    image: spark:latest
+    container_name: bd_spark_job
+    profiles: ["jobs"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    environment:
+      HOME: /tmp
+    volumes:
+      - "./jobs:/opt/spark/jobs:ro"
+    command:
+      - /opt/spark/bin/spark-submit
+      - --conf
+      - spark.jars.ivy=/tmp/.ivy2
+      - --packages
+      - org.postgresql:postgresql:42.7.3,com.clickhouse:clickhouse-jdbc:0.6.3
+      - /opt/spark/jobs/etl.py
+
+volumes:
+  postgres_data:
+  clickhouse_data:

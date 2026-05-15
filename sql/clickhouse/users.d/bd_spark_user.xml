@@ -1,0 +1,12 @@
+<clickhouse>
+    <users>
+        <bd_spark>
+            <password>bd_spark</password>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+        </bd_spark>
+    </users>
+</clickhouse>
